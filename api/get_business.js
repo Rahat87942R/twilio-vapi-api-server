@@ -10,6 +10,11 @@ export default async function handler(req) {
       status: 405,
     });
   }
+  
+  const authHeader = req.headers.get("authorization");
+  if (authHeader !== `Bearer ${process.env.ACCESS_TOKEN}`) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+  }
 
   const { zipcode, service } = await req.json();
   const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
