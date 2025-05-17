@@ -6,11 +6,27 @@ const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TO
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
-  const { caller } = req.body;
+  const caller = req.body?.message?.customer?.number;
 
+  if (!caller) {
+    console.error("❌ Missing caller number in request body");
+    return res.status(400).json({ error: "Missing caller number" });
+  }
   try {
-    const callSid = await redis.get(`call:${caller}`);
-    const baseUrl = `${req.headers["x-forwarded-proto"] || "https"}://${req.headers.host}`;
+    function normalizePhone(number) {
+      return number.replace(/[^\d+]/g, '');
+    }
+
+    const normalizedCaller = normalizePhone(caller);
+    const callSid = await redis.get(`call:${normalizedCaller}`);
+
+    if (!callSid || !callSid.startsWith("CA")) {
+      console.error("Invalid or missing callSid from Redis:", callSid);
+      return res.status(400).json({ error: "Invalid call SID for caller." });
+    }
+
+    const forwardedProto = (req.headers["x-forwarded-proto"] || "https").split(",")[0].trim();
+    const baseUrl = `${forwardedProto}://${req.headers.host}`;
     const confName = `conf_${Date.now()}`;
     
     const conferenceUrl = `${baseUrl}/api/conference?conf=${confName}`;
@@ -35,14 +51,16 @@ export default async function handler(req, res) {
         to: number,
         url: joinConfUrl,
         method: 'POST',
-        statusCallback: statusCallbackUrl,
+        statusCallback: `${statusCallbackUrl}?parent=${callSid}`,
         statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
         statusCallbackMethod: 'POST',
       });
 
-      const session = await redis.get(`conf:${callSid}`);
+      const sessionRaw = await redis.get(`conf:${callSid}`);
+      const session = typeof sessionRaw === 'string' ? JSON.parse(sessionRaw) : sessionRaw;
+
       session.sids.push(call.sid);
-      await redis.set(`conf:${callSid}`, session, { ex: 600 });
+      await redis.set(`conf:${callSid}`, JSON.stringify(session), { ex: 600 });
     }
 
     return res.status(200).json({ status: 'Specialist dialing initiated' });

@@ -4,19 +4,24 @@ import axios from 'axios';
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
-  const { globalCallSid, Caller } = req.body;
-  if (!globalCallSid || !Caller) {
+  const { CallSid, Caller } = req.body;
+  if (!CallSid || !Caller) {
     console.error("❌ Missing CallSid or Caller");
     return res.status(400).send("Missing CallSid or Caller");
   }
-
+  console.log("Receiving a call from SID : ", CallSid)
   const {
     VAPI_BASE_URL, PHONE_NUMBER_ID,
     ASSISTANT_ID, PRIVATE_API_KEY
   } = process.env;
 
   try {
-    await redis.set(`call:${Caller}`, globalCallSid, { ex: 600 });
+    function normalizePhone(number) {
+      return number.replace(/[^\d+]/g, '');
+    }
+
+    const normalizedCaller = normalizePhone(Caller);
+    await redis.set(`call:${normalizedCaller}`, CallSid, { ex: 600 });
 
     const vapiResponse = await axios.post(
       `${VAPI_BASE_URL}/call`,
