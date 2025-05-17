@@ -3,7 +3,10 @@ import twilio from 'twilio';
 export default function handler(req, res) {
   const VoiceResponse = twilio.twiml.VoiceResponse;
   const twiml = new VoiceResponse();
-  const confName = `conf_${Date.now()}`;
+  const confName = req.query.conf;
+  if (!confName) {
+    return res.status(400).send("Missing conf name");
+  }
 
   const dial = twiml.dial();
   dial.conference({

@@ -12,16 +12,21 @@ export default async function handler(req, res) {
     const callSid = await redis.get(`call:${caller}`);
     const baseUrl = `${req.headers["x-forwarded-proto"] || "https"}://${req.headers.host}`;
     const confName = `conf_${Date.now()}`;
-    const joinConfUrl = `${baseUrl}/api/twiml-join-conference`;
+    
+    const conferenceUrl = `${baseUrl}/api/conference?conf=${confName}`;
+    const joinConfUrl = `${baseUrl}/api/twiml-join-conference?conf=${confName}`;
     const statusCallbackUrl = `${baseUrl}/api/participant-status`;
 
+    // Store conference session
     await redis.set(`conf:${callSid}`, { name: confName, sids: [] }, { ex: 600 });
 
+    // Move caller into conference
     await client.calls(callSid).update({
-      url: `${baseUrl}/api/conference`,
+      url: conferenceUrl,
       method: 'POST',
     });
 
+    // Call specialists
     const specialistNumbers = ["+18304838832", "+12813787468"];
 
     for (const number of specialistNumbers) {
