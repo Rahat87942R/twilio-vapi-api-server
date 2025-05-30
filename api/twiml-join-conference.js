@@ -85,11 +85,32 @@ export default async function handler(req, res) {
       twiml.say("Sorry, this call has already been taken. Goodbye.");
       twiml.hangup();
     } else {
-      // Accept this caller
       await redis.set(`conf:${confName}:accepted`, callSid);
+
+      // Fetch service info by callSid
+      const serviceInfoRaw = await redis.get(`conf:${confName}:sid:${callSid}`);
+      const serviceInfo = typeof serviceInfoRaw === 'string' ? JSON.parse(serviceInfoRaw) : serviceInfoRaw;
+
+      const webhookUrl = process.env.WEBHOOK_ON_ACCEPT;
+      if (webhookUrl && serviceInfo) {
+        try {
+          await fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              event: 'accepted',
+              service: serviceInfo,
+              confName,
+              timestamp: Date.now()
+            }),
+          });
+        } catch (err) {
+          console.error("❌ Failed to notify webhook:", err.message);
+        }
+      }
+
       twiml.say("Connecting you now.");
       twiml.pause({ length: 1 });
-
       // Disconnect other calls
       const sessionRaw = await redis.get(`conf:${confName}`);
       const session = typeof sessionRaw === 'string' ? JSON.parse(sessionRaw) : sessionRaw;

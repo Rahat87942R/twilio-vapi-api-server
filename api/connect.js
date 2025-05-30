@@ -40,17 +40,17 @@ export default async function handler(req, res) {
         method: 'POST',
       });
 
-      const specialistNumbers = process.env.SPECIALIST_NUMBERS.split(',').map(num => num.trim());
+      const services = JSON.parse(process.env.SERVICE_DATA);
+      await redis.set(`conf:${confName}:services`, JSON.stringify(services), { ex: 600 });
 
-      console.log(specialistNumbers);
-      await redis.set(`conf:${confName}:total`, specialistNumbers.length);
+      await redis.set(`conf:${confName}:total`, services.length);
       await redis.set(`conf:${confName}:rejected`, 0);
       await redis.set(`conf:${confName}:customer`, callSid); 
       
-      for (const number of specialistNumbers) {
+      for (const service of services) {
         const call = await client.calls.create({
           from: process.env.FROM_NUMBER,
-          to: number,
+          to: service.phone,
           url: joinConfUrl,
           method: 'POST',
           machineDetection: 'Enable',
@@ -62,6 +62,10 @@ export default async function handler(req, res) {
         const sessionRaw = await redis.get(`conf:${confName}`);
         const session = typeof sessionRaw === 'string' ? JSON.parse(sessionRaw) : sessionRaw;
         session.sids.push(call.sid);
+
+        // Store service info for this call SID
+        await redis.set(`conf:${confName}:sid:${call.sid}`, JSON.stringify(service), { ex: 600 });
+
         await redis.set(`conf:${confName}`, JSON.stringify(session), { ex: 600 });
       }
 

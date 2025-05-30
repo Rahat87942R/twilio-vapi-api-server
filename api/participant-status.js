@@ -21,17 +21,18 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // 🔍 Find confName by checking sessions that contain ParentCallSid
   let confName = null;
   const keys = await redis.keys('conf:*');
   for (const key of keys) {
+    if ((key.match(/:/g) || []).length > 1) continue;
+
     const raw = await redis.get(key);
     let session;
 
     try {
       session = typeof raw === 'string' ? JSON.parse(raw) : raw;
     } catch {
-      continue;
+      continue; // Skip if not valid JSON
     }
 
     if (Array.isArray(session?.sids) && session.sids.includes(ParentCallSid)) {
@@ -46,7 +47,13 @@ export default async function handler(req, res) {
   if (AnsweredBy?.startsWith('machine')) {
     console.log(`🤖 Voicemail detected on ${CallSid} in ps.ks`);
 
-    await redis.incr(`conf:${confName}:rejected`);
+    const rejectedKey = `conf:${confName}:rejected`;
+    const rejectedType = await redis.type(rejectedKey);
+    if (rejectedType !== 'string') {
+      await redis.del(rejectedKey); // or set to 0 based on your logic
+      await redis.set(rejectedKey, 0);
+    }
+    await redis.incr(rejectedKey);
 
     const total = parseInt(await redis.get(`conf:${confName}:total`) || '0', 10);
     const rejected = parseInt(await redis.get(`conf:${confName}:rejected`) || '0', 10);
