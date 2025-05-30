@@ -1,8 +1,9 @@
 {
   "type": "module",
   "dependencies": {
+    "@upstash/redis": "^1.23.0",
     "axios": "^1.6.8",
-    "twilio": "^4.21.0",
-    "@upstash/redis": "^1.23.0"
+    "redis": "^5.1.1",
+    "twilio": "^4.21.0"
   }
 }

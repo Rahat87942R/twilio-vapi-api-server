@@ -37,12 +37,12 @@ export default async function handler(req) {
       return new Response(JSON.stringify({ error: "Invalid ZIP code" }), { status: 400 });
     }
 
-    const phones = [];
+    const businesses = [];
     let pageToken = "";
     let attempts = 0;
 
-    // Step 2: Query Places API until 20 phones are collected
-    while (phones.length < 20 && attempts < 5) {
+    // Step 2: Query Places API until 20 businesses are collected
+    while (businesses.length < 20 && attempts < 5) {
       const nearbyUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${location.lat},${location.lng}&radius=10000&keyword=${encodeURIComponent(
         service
       )}&type=point_of_interest&key=${GOOGLE_API_KEY}${pageToken ? `&pagetoken=${pageToken}` : ""}`;
@@ -54,15 +54,18 @@ export default async function handler(req) {
       const placeData = await placeRes.json();
 
       for (const place of placeData.results) {
-        if (phones.length >= 20) break;
+        if (businesses.length >= 20) break;
 
-        const detailUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=formatted_phone_number&key=${GOOGLE_API_KEY}`;
+        const detailUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,formatted_phone_number&key=${GOOGLE_API_KEY}`;
         const detailRes = await fetch(detailUrl);
         const detailData = await detailRes.json();
-        const phone = detailData.result?.formatted_phone_number;
-
-        if (phone && !phones.includes(phone)) {
-          phones.push(formatPhoneNumber(phone));
+        const result = detailData.result;
+        
+        if (result && result.name && result.formatted_phone_number) {
+          businesses.push({
+            name: result.name,
+            phone: formatPhoneNumber(result.formatted_phone_number)
+          });
         }
       }
 
@@ -70,7 +73,7 @@ export default async function handler(req) {
       attempts++;
     }
 
-    return new Response(JSON.stringify({ phones }), {
+    return new Response(JSON.stringify({ businesses }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
