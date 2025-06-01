@@ -1,5 +1,6 @@
 import { redis } from '../lib/redis.js';
 import twilio from 'twilio';
+import { getServicesFromZip } from '../lib/getServicesFromZip.js';
 
 const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
@@ -8,7 +9,8 @@ export default async function handler(req, res) {
 
   if (req.headers.authorization !== `Bearer ${process.env.ACCESS_TOKEN}`) {
     const caller = req.body?.message?.customer?.number;
-
+    const zipcode = req.body?.message?.toolCalls[0]?.function?.arguments?.zipcode;
+    const service = req.body?.message?.toolCalls[0]?.function?.arguments?.typeOfBusiness;
     if (!caller) {
       console.error("❌ Missing caller number in request body");
       return res.status(400).json({ error: "Missing caller number" });
@@ -40,7 +42,14 @@ export default async function handler(req, res) {
         method: 'POST',
       });
 
-      const services = JSON.parse(process.env.SERVICE_DATA);
+      let services;
+
+      if (process.env.MODE === "DEVELOPMENT"){
+        services = JSON.parse(process.env.SERVICE_DATA);
+      } else if (process.env.MODE === "PRODUCTION") {
+        services = await getServicesFromZip(zipcode, service);
+      }
+
       await redis.set(`conf:${confName}:services`, JSON.stringify(services), { ex: 600 });
 
       await redis.set(`conf:${confName}:total`, services.length);

@@ -6,7 +6,7 @@ export default async function handler(req, res) {
 
   console.log(`CallSid: ${CallSid} has ${CallStatus}`)
 
-  // 🚨 Emergency Kill Switch
+  // Emergency Kill Switch
   const emergency = await redis.get('emergency:shutdown');
   if (emergency === 'true') {
     console.log('🚨 Emergency shutdown active. Ending call', CallSid);

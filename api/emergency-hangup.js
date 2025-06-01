@@ -1,4 +1,3 @@
-// pages/api/emergency-hangup.js
 import twilio from 'twilio';
 import { redis } from '../lib/redis';
 
@@ -7,7 +6,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  // Optional: Protect with a secret token
+  //Protect with a secret token
   const token = req.headers['x-secret-token'];
   if (token !== process.env.EMERGENCY_KILL_TOKEN) {
     return res.status(403).json({ error: 'Unauthorized' });
@@ -16,7 +15,7 @@ export default async function handler(req, res) {
   const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
   try {
-    // Optional: Kill all calls from a specific conference
+    // Kill all calls from a specific conference
     const keys = await redis.keys('conf:*');
     const sids = new Set();
 

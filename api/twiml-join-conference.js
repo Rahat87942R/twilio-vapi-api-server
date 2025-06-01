@@ -19,6 +19,7 @@ export default async function handler(req, res) {
     await redis.set(`conf:${confName}:rejected`, rejected);
 
     if (rejected >= total) {
+      console.log("End the call now!")
       const customerSid = await redis.get(`conf:${confName}:customer`);
 
       if (customerSid) {
@@ -72,7 +73,7 @@ export default async function handler(req, res) {
       method: 'POST',
     });
 
-    // Optional: Pause to give humans a second to say "hello"
+    // Pause to give humans a second to say "hello"
     gather.pause({ length: 1 });
     gather.say("Hello, we have a customer for you. Press 1 to accept the call. Press 2 to decline.");
 
