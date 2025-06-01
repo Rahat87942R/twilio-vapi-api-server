@@ -1,6 +1,6 @@
 import { redis } from '../lib/redis.js';
 import twilio from 'twilio';
-import { getServicesFromZip } from '../lib/getServicesFromZip.js';
+import { getServices } from '../lib/getServices.js';
 
 const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
@@ -47,7 +47,7 @@ export default async function handler(req, res) {
       if (process.env.MODE === "DEVELOPMENT"){
         services = JSON.parse(process.env.SERVICE_DATA);
       } else if (process.env.MODE === "PRODUCTION") {
-        services = await getServicesFromZip(zipcode, service);
+        services = await getServices(zipcode, service);
       }
 
       await redis.set(`conf:${confName}:services`, JSON.stringify(services), { ex: 600 });
